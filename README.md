@@ -13,8 +13,8 @@ Open the `config/core.yaml` file at the top of the `fabric-samples` directory. I
 Modify the `externalBuilders` field in the `core.yaml` file to resemble the configuration below:
 ```
 externalBuilders:
-    - path: /opt/gopath/src/github.com/hyperledger/fabric-samples/asset-transfer-basic/chaincode-external/sampleBuilder
-      name: external-sample-builder
+    - path: /opt/gopath/src/github.com/hyperledger/fabric-samples/points-transfer/chaincode/sampleBuilder
+      name: sample-builder
 ```
 This update sets the name of the external builder as `external-sample-builder`, and the path of the builder to the scripts provided in this sample. Note that this is the path within the peer container, not your local machine.
 
@@ -31,15 +31,15 @@ This update will mount the `core.yaml` that you modified into the peer container
 
 The Asset-Transfer-Basic external chaincode requires two environment variables to run, `CHAINCODE_SERVER_ADDRESS` and `CHAINCODE_ID`, which are described and set in the `chaincode.env` file.
 
-You need to provide a `connection.json` configuration file to your peer in order to connect to the external Asset-Transfer-Basic service. The address specified in the `connection.json` must correspond to the `CHAINCODE_SERVER_ADDRESS` value in `chaincode.env`, which is `asset-transfer-basic.org1.example.com:9999` in our example.
+You need to provide a `connection.json` configuration file to your peer in order to connect to the external Asset-Transfer-Basic service. The address specified in the `connection.json` must correspond to the `CHAINCODE_SERVER_ADDRESS` value in `chaincode.env`, which is `points-transfer.org1.example.com:9999` in our example.
 
 Because we will run our chaincode as an external service, the chaincode itself does not need to be included in the chaincode
 package that gets installed to each peer. Only the configuration and metadata information needs to be included
 in the package. Since the packaging is trivial, we can manually create the chaincode package.
 
-Open a new terminal and navigate to the `fabric-samples/asset-transfer-basic/chaincode-external` directory.
+Open a new terminal and navigate to the `fabric-samples/points-transfer/chaincode-external` directory.
 ```
-cd fabric-samples/asset-transfer-basic/chaincode-external
+cd fabric-samples/points-transfer/chaincode-external
 ```
 
 First, create a `code.tar.gz` archive containing the `connection.json` file:
@@ -49,7 +49,7 @@ tar cfz code.tar.gz connection.json
 
 Then, create the chaincode package, including the `code.tar.gz` file and the supplied `metadata.json` file:
 ```
-tar cfz asset-transfer-basic-external.tgz metadata.json code.tar.gz
+tar cfz points-transfer-external.tgz metadata.json code.tar.gz
 ```
 
 You are now ready to deploy the external chaincode sample.
@@ -83,16 +83,16 @@ Run the following command to import functions from the `envVar.sh` script into y
 . ./scripts/envVar.sh
 ```
 
-Run the following commands to install the `asset-transfer-basic-external.tar.gz` chaincode on org1. The `setGlobals` function simply sets the environment variables that allow you to act as org1 or org2.
+Run the following commands to install the `points-transfer-external.tar.gz` chaincode on org1. The `setGlobals` function simply sets the environment variables that allow you to act as org1 or org2.
 ```
 setGlobals 1
-peer lifecycle chaincode install ../asset-transfer-basic/chaincode-external/asset-transfer-basic-external.tgz
+peer lifecycle chaincode install ../points-transfer/chaincode-external/points-transfer-external.tgz
 ```
 
 Install the chaincode package on the org2 peer:
 ```
 setGlobals 2
-peer lifecycle chaincode install ../asset-transfer-basic/chaincode-external/asset-transfer-basic-external.tgz
+peer lifecycle chaincode install ../points-transfer/chaincode-external/points-transfer-external.tgz
 ```
 
 Run the following command to query the package ID of the chaincode that you just installed:
@@ -117,19 +117,19 @@ export CHAINCODE_ID=basic_1.0:ecfc83f251b7c2d9ef376bc3fc20fc6b9744c0fc0a8923092a
 
 We are going to run the smart contract as an external service by first building and then starting a docker container. Open a new terminal and navigate back to the `chaincode-external` directory:
 ```
-cd fabric-samples/asset-transfer-basic/chaincode-external
+cd fabric-samples/points-transfer/chaincode-external
 ```
 
 In this directory, open the `chaincode.env` file to set the `CHAINCODE_ID` variable to the same package ID that was returned by the `peer lifecycle chaincode queryinstalled` command. The value should be the same as the environment variable that you set in the previous terminal.
 
 After you edit the `chaincode.env` file, you can use the `Dockerfile` to build an image of the external Asset-Transfer-Basic chaincode:
 ```
-docker build -t hyperledger/asset-transfer-basic .
+docker build -t hyperledger/points-transfer .
 ```
 
 You can then run the image to start the Asset-Transfer-Basic service:
 ```
-docker run -it --rm --name asset-transfer-basic.org1.example.com --hostname asset-transfer-basic.org1.example.com --env-file chaincode.env --network=fabric_test hyperledger/asset-transfer-basic
+docker run -it --rm --name points-transfer.org1.example.com --hostname points-transfer.org1.example.com --env-file chaincode.env --network=fabric_test hyperledger/points-transfer
 ```
 
 This will start and run the external chaincode service within the container.
@@ -159,9 +159,9 @@ Now that we have started the chaincode service and deployed it to the channel, w
 
 ## Using the Asset-Transfer-Basic external chaincode
 
-Open yet another terminal and navigate to the `fabric-samples/asset-transfer-basic/application-javascript` directory:
+Open yet another terminal and navigate to the `fabric-samples/points-transfer/application-javascript` directory:
 ```
-cd fabric-samples/asset-transfer-basic/application-javascript
+cd fabric-samples/points-transfer/application-javascript
 ```
 
 Run the following commands to use the node application in this directory to test the external smart contract:
@@ -179,20 +179,20 @@ If all goes well, the program should run exactly the same as described in the "W
 
 In the sample so far, you connected both peers in `test-network` to the single instance of chaincode server. However, if you would like to enable TLS between the peer nodes and the chaincode server, each peer node needs to have its own CA certificate. Enabling TLS is made possible at runtime in the chaincode.
 
-- As a first step generate a keypair that can be used. Run these commands from the `fabric-samples/asset-transfer-basic/chaincode-external` directory.
+- As a first step generate a keypair that can be used. Run these commands from the `fabric-samples/points-transfer/chaincode-external` directory.
 
 *Find instructions to install `openssl` in [openssl.org](https://www.openssl.org/)*
 
 For `org1.example.com`
 
 ```
-openssl req -nodes -x509 -newkey rsa:4096 -keyout crypto/key1.pem -out crypto/cert1.pem -subj "/C=IN/ST=KA/L=Bangalore/O=example Inc/OU=Developer/CN=asset-transfer-basic.org1.example.com/emailAddress=dev@asset-transfer-basic.org1.example.com"
+openssl req -nodes -x509 -newkey rsa:4096 -keyout crypto/key1.pem -out crypto/cert1.pem -subj "/C=IN/ST=KA/L=Bangalore/O=example Inc/OU=Developer/CN=points-transfer.org1.example.com/emailAddress=dev@points-transfer.org1.example.com"
 ```
 
 For `org2.example.com`
 
 ```
-openssl req -nodes -x509 -newkey rsa:4096 -keyout crypto/key2.pem -out crypto/cert2.pem -subj "/C=IN/ST=KA/L=Bangalore/O=example Inc/OU=Developer/CN=asset-transfer-basic.org2.example.com/emailAddress=dev@asset-transfer-basic.org2.example.com"
+openssl req -nodes -x509 -newkey rsa:4096 -keyout crypto/key2.pem -out crypto/cert2.pem -subj "/C=IN/ST=KA/L=Bangalore/O=example Inc/OU=Developer/CN=points-transfer.org2.example.com/emailAddress=dev@points-transfer.org2.example.com"
 ```
 
 - Copy the CA file contents for both `org1.example.com` & `org2.example.com`
@@ -215,7 +215,7 @@ Similarly, replace the `client_key` and the `client_cert` contents with the valu
 
 ```
 {
-  "address": "asset-transfer-basic.org1.example.com:9999",
+  "address": "points-transfer.org1.example.com:9999",
   "dial_timeout": "10s",
   "tls_required": true,
   "client_auth_required": true,
@@ -225,7 +225,7 @@ Similarly, replace the `client_key` and the `client_cert` contents with the valu
 }
 ```
 
-- Follow the instructions in [Package](#packaging-and-installing-chaincode) and [Install](#installing-the-external-chaincode) steps for each organization. Remember that the chaincode server's address for the second organization is `asset-transfer-basic.org2.example.com:9999`.
+- Follow the instructions in [Package](#packaging-and-installing-chaincode) and [Install](#installing-the-external-chaincode) steps for each organization. Remember that the chaincode server's address for the second organization is `points-transfer.org2.example.com:9999`.
 
 - Copy the appropriate `CHAINCODE_ID` to both [chaincode1.env](./chaincode1.env) and [chaincode2.env](./chaincode2.env) files. Bring up the chaincode containers using the docker-compose command below
 
@@ -233,4 +233,4 @@ Similarly, replace the `client_key` and the `client_cert` contents with the valu
 docker-compose up -f docker-compose-chaincode.yaml up --build -d
 ```
 
-- Follow the instructions in [Finish Deployment](#finish-deploying-the-asset-transfer-basic-external-chaincode-) for each organization seperately.
+- Follow the instructions in [Finish Deployment](#finish-deploying-the-points-transfer-external-chaincode-) for each organization seperately.

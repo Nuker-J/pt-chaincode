@@ -173,7 +173,7 @@ func main() {
 	chaincode, err := contractapi.NewChaincode(&SmartContract{})
 
 	if err != nil {
-		log.Panicf("error create asset-transfer-basic chaincode: %s", err)
+		log.Panicf("error create points-transfer chaincode: %s", err)
 	}
 
 	server := &shim.ChaincodeServer{
@@ -184,7 +184,7 @@ func main() {
 	}
 
 	if err := server.Start(); err != nil {
-		log.Panicf("error starting asset-transfer-basic chaincode: %s", err)
+		log.Panicf("error starting points-transfer chaincode: %s", err)
 	}
 }
 
