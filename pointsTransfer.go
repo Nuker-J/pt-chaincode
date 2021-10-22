@@ -26,111 +26,117 @@ type SmartContract struct {
 	contractapi.Contract
 }
 
+type Source struct {
+	Type string `json:"type"`
+	ID   string `json:"ID"`
+}
+
 // Asset describes basic details of what makes up a simple asset
-type PointTransaction struct {
-	Owner     string `json:"Owner"`
-	Value     string `json:"value"`
-	Merchant  string `json:"merchant"`
-	Status    string `json:"status"` // [pending, archived, birthday, campaign, adjustment, bouns, lifecard]
-	CreatedAt string `json:"created_at"`
-
-	Order    string `json:"order"`
-	Stockist string `json:"stockist"`
-	Campaign string `json:"campaign"`
-	Giftee   string `json:"giftee"`
-	Gifter   string `json:"gifter"`
+type PointsTransaction struct {
+	ID 		   string  `json:"ID"`
+	Value     int     `json:"value"`
+	// Merchant   string  `json:"merchant"`
+	CreatedAt  string  `json:"created_at"`
+	Sender     string  `json:"sender"`
+	Receiver   string  `json:"receiver"`
+	Source     *Source `json:"source"`
 }
 
-// QueryResult structure used for handling result of query
-type QueryResult struct {
-	Key    string `json:"Key"`
-	Record *PointTransaction
+type MerchantPoints struct {
+	ID   string 	`json:"ID"`
+	Value int 		`json:"value"`
 }
 
-// InitLedger adds a base set of point transations to the ledger
+// Customer or Merchant
+type Member struct {
+	ID					string 				`json:"ID"`
+	Merchant   			string  			`json:"merchant"`
+	MerchantPoints  	map[string]int      `json:"merchantPoints"`
+	Points 				int 				`json:"points"`
+	Transaction 		*PointsTransaction 	`json:"transaction"`
+}
+
+
+// InitLedger adds a base set of points transactions to the ledger
 func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) error {
-	transations := []PointTransaction{
-		PointTransaction{Owner: "Xiaoming", Value: "300", Merchant: "zh-CN", Status: "Birthday", CreatedAt: "20210929"},
+	// transaction1 := PointsTransaction{
+	// 	ID: "12738647",
+	// 	Value: 1000,
+	// 	CreatedAt: "20210929",
+	// 	Sender: "zh-CN",
+	// 	Receiver: "jin.xiaoming@ekohe.com",
+	// 	Source: &Source{Type: "Birthday"},
+	// }
+
+	transaction2 := PointsTransaction{
+		ID: "12738648",
+		Value: 500,
+		CreatedAt: "20211009",
+		Sender: "zh-TW",
+		Receiver: "maxime@ekohe.com",
+		Source: &Source{Type: "Order", ID: "737463747"},
 	}
 
-	for i, transation := range transations {
-		transationAsBytes, _ := json.Marshal(transation)
-		err := ctx.GetStub().PutState("Transation"+strconv.Itoa(i), transationAsBytes)
+	transaction3 := PointsTransaction{
+		ID: "12738649",
+		Value: 800,
+		CreatedAt: "20211011",
+		Sender: "jin.xiaoming@ekohe.com",
+		Receiver: "zh-TW",
+		Source: &Source{Type: "Order", ID: "345342523"},
+	}
+
+	
+	// Pass []byte{0x00} as null value, as pass a 'nil' value will effectively delete the key from state
+	members := []Member{
+		Member{ID: "zh-CN", Points: 1000, MerchantPoints: map[string]int{"zh-TW": 800}},
+		Member{ID: "zh-TW", Points: 500, MerchantPoints: map[string]int{"jp": 500}},
+		Member{ID: "jp", Points: 0, MerchantPoints: map[string]int{}},
+		Member{ID: "jin.xiaoming@ekohe.com", Merchant: "zh-CN", Points: 200, Transaction: &transaction3, MerchantPoints: map[string]int{"zh-CN": 1000, "zh-TW": -800}},
+		Member{ID: "maxime@ekohe.com", Merchant: "jp", Points: 500, Transaction: &transaction2, MerchantPoints: map[string]int{"zh-TW": 500}},
+	}
+
+	for _, member := range members {
+		memberAsBytes, _ := json.Marshal(member)
+		err := ctx.GetStub().PutState(member.ID, memberAsBytes)
 
 		if err != nil {
-			return fmt.Errorf("Failed to put to world state. %s", err.Error())
+			return fmt.Errorf("failed to put to world state. %s", err.Error())
 		}
 	}
 
 	return nil
 }
 
-func (s *SmartContract) CreateBirthdayTransation(ctx contractapi.TransactionContextInterface, transationId string, owner string, value string, merchant string, createdAt string) error {
-	PointTransaction := PointTransaction{
-		Owner:     owner,
-		Value:     value,
-		Merchant:  merchant,
-		CreatedAt: createdAt,
-		Status: "Birthday",
-	}
-
-	transationAsBytes, _ := json.Marshal(PointTransaction)
-
-	return ctx.GetStub().PutState(transationId, transationAsBytes)
-}
-
-func (s *SmartContract) CreateOrderTransaction(ctx contractapi.TransactionContextInterface, transationId string, owner string, value string, merchant string, createdAt string, order string, stockist string) error {
-	PointTransaction := PointTransaction{
-		Owner:     owner,
-		Value:     value,
-		Merchant:  merchant,
-		CreatedAt: createdAt,
-		Order:     order,
-		Stockist:  stockist,
-		Status: "Order",
-	}
-
-	transationAsBytes, _ := json.Marshal(PointTransaction)
-
-	return ctx.GetStub().PutState(transationId, transationAsBytes)
-}
-
-func (s *SmartContract) CreateCampaignTransation(ctx contractapi.TransactionContextInterface, transationId string, owner string, value string, merchant string, createdAt string, campaign string) error {
-	PointTransaction := PointTransaction{
-		Owner:     owner,
-		Value:     value,
-		Merchant:  merchant,
-		CreatedAt: createdAt,
-		Campaign:  campaign,
-		Status: "Campaign",
-	}
-
-	transationAsBytes, _ := json.Marshal(PointTransaction)
-
-	return ctx.GetStub().PutState(transationId, transationAsBytes)
-}
-
-func (s *SmartContract) QueryTransation(ctx contractapi.TransactionContextInterface, id string) (*PointTransaction, error) {
-	transactionJson, err := ctx.GetStub().GetState(id)
+func (s *SmartContract) GetMember(ctx contractapi.TransactionContextInterface, id string) (*Member, error) {
+	bytes, err := ctx.GetStub().GetState(id)
 
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read from world state. %s", err.Error())
+		return nil, fmt.Errorf("failed to read from world state. %s", err.Error())
 	}
 
-	if transactionJson == nil {
+	if bytes == nil {
 		return nil, fmt.Errorf("%s does not exist in world state", id)
 	}
 
-	var transaction PointTransaction
-	err = json.Unmarshal(transactionJson, &transaction)
+	var member Member
+	err = json.Unmarshal(bytes, &member)
 	if err != nil {
 		return nil, err
 	}
 
-	return &transaction, nil
+	return &member, nil
 }
 
-func (s *SmartContract) QueryAllTransactions(ctx contractapi.TransactionContextInterface) ([]QueryResult, error) {
+func (s *SmartContract) GetAllMerchants(ctx contractapi.TransactionContextInterface) ([]Member, error) {
+	return nil, nil
+}
+
+func (s *SmartContract) GetCustomersByMerchant(ctx contractapi.TransactionContextInterface, merchant string) ([]Member, error) {
+	return nil, nil
+}
+
+func (s *SmartContract) GetAllMembers(ctx contractapi.TransactionContextInterface) ([]Member, error) {
 	startKey := ""
 	endKey := ""
 
@@ -141,7 +147,7 @@ func (s *SmartContract) QueryAllTransactions(ctx contractapi.TransactionContextI
 	}
 	defer resultsIterator.Close()
 
-	results := []QueryResult{}
+	results := []Member{}
 
 	for resultsIterator.HasNext() {
 		queryResponse, err := resultsIterator.Next()
@@ -150,17 +156,119 @@ func (s *SmartContract) QueryAllTransactions(ctx contractapi.TransactionContextI
 			return nil, err
 		}
 
-		pointTransaction := new(PointTransaction)
-		err = json.Unmarshal(queryResponse.Value, pointTransaction)
+		member := new(Member)
+		err = json.Unmarshal(queryResponse.Value, member)
 		if err != nil {
 			return nil, err
 		}
 
-		queryResult := QueryResult{Key: queryResponse.Key, Record: pointTransaction}
-		results = append(results, queryResult)
+		// queryResult := QueryResult{Key: queryResponse.Key, Record: pointsTransaction}
+		results = append(results, *member)
 	}
 
 	return results, nil
+}
+
+func (s *SmartContract) CreateMember(ctx contractapi.TransactionContextInterface, id string, merchant string) (*Member) {
+	member, _ := s.GetMember(ctx, id)
+
+	if member != nil {
+		return member
+	}
+
+	if id == merchant {
+		merchant = ""
+	}
+
+	member = &Member{
+		ID: id,
+		Merchant: merchant,
+		Points: 0,
+		Transaction: nil,
+		MerchantPoints: map[string]int{},
+	}
+
+	memberAsBytes, _ := json.Marshal(member)
+	ctx.GetStub().PutState(member.ID, memberAsBytes)
+
+	return member
+}
+
+func (s *SmartContract) CreateTransaction(ctx contractapi.TransactionContextInterface, id string, senderKey string, receiverKey string, value int, merchant string, createdAt string, sourceType string, sourceId string) error {
+	// exists, err := s.AssetExists(ctx, id)
+	transaction := PointsTransaction{
+		ID: id,
+		Value: value,
+		CreatedAt: createdAt,
+		Sender: senderKey,
+		Receiver: receiverKey,
+		Source: &Source{
+			Type: sourceType,
+			ID: sourceId,
+		},
+	}
+
+	sender := s.CreateMember(ctx, senderKey, merchant)
+	receiver := s.CreateMember(ctx, receiverKey, merchant)
+
+	if sender.Merchant == "" && receiver.Merchant != "" {
+		// Case1: Customer get points from a merchant
+		receiver.Points += value
+		receiver.Transaction = &transaction
+		receiver.MerchantPoints[sender.ID] += value
+
+		sender.Points += value
+		if sender.ID != receiver.Merchant {
+			sender.MerchantPoints[receiver.Merchant] += value
+		}
+	} else if sender.Merchant != "" && receiver.Merchant == "" {
+		// Case2: A merchant receive customer's points by using it in order purchase
+		if sender.Points < value {
+			// TODO: Alert error about points is not enough to purchase
+			return fmt.Errorf("%s does not have enough points", sender.ID)
+		}
+
+		sender.Points -= value
+		sender.Transaction = &transaction
+		sender.MerchantPoints[receiver.ID] -= value
+
+		if sender.Merchant != receiver.ID {
+			receiver.MerchantPoints[sender.Merchant] -= value
+		} else {
+			receiver.Points -= value
+		}
+	} else if sender.Merchant == "" && receiver.Merchant == "" {
+		// Case 3: Transaction between two merchants
+		sender.Points += value
+		sender.MerchantPoints[receiver.ID] += value
+	} else if sender.Merchant != "" && receiver.Merchant != "" {
+		// Case 4: Customer give points to others as gift
+		if sender.Points < value {
+			// TODO: Alert error about points is not enough to purchase
+			return fmt.Errorf("%s does not have enough points", sender.ID)
+		}
+
+		sender.Points -= value
+		sender.Transaction = &transaction
+		sender.MerchantPoints[sender.Merchant] -= value
+
+		receiver.Points += value
+		receiver.Transaction = &transaction
+		receiver.MerchantPoints[sender.Merchant] += value
+	}
+
+
+	senderAsBytes, _ := json.Marshal(sender)
+	senderErr := ctx.GetStub().PutState(sender.ID, senderAsBytes)
+
+	if senderErr != nil {
+		return senderErr
+	}
+
+	receiverAsBytes, _ := json.Marshal(receiver)
+	receiverErr := ctx.GetStub().PutState(receiver.ID, receiverAsBytes)
+
+	return receiverErr
 }
 
 func main() {
